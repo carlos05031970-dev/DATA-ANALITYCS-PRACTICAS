@@ -74,17 +74,10 @@ INSERT INTO productos (id_producto, nombre_producto, id_categoria, precio, stock
 
 
  -- PRE ENTREGA 5 
-
- -- 1. Agregamos id_sucursal a ventas
-ALTER TABLE ventas ADD id_sucursal INT;
-GO
--- 2. Asignamos sucursales a los registros de ventas
-UPDATE ventas SET id_sucursal = 1 WHERE id_venta IN (1, 2);
-UPDATE ventas SET id_sucursal = 2 WHERE id_venta = 3;
-UPDATE ventas SET id_sucursal = 3 WHERE id_venta > 3;
-GO
-
--- Consulta 1: Vista base del proyecto (INNER JOIN)
+-- Seleccionar la base de datos de trabajo
+USE ventas_tech_db;
+-- Consulta 1: Vista consolidada de ventas y dimensiones (INNER JOIN)
+-- Propósito: consolidar en una única vista transaccional el detalle de ventas junto con clientes, productos, categorías y sucursales para el análisis integral del negocio.
 SELECT 
     v.id_venta,
     v.fecha_venta,
@@ -107,22 +100,33 @@ INNER JOIN categorias AS cat
 INNER JOIN sucursales AS s 
     ON v.id_sucursal = s.id_sucursal;
 
-    -- Hallazgo: Se observa que Córdoba tiene el mayor volumen físico de transacciones impulsada por el producto de mayor rotación (Mouse Inalámbrico, con 8 unidades), mientras que CABA concentra las ventas de mayor ticket unitario (Laptop Pro 15, con 2 unidades).
+    -- Hallazgo: Permite cruzar el volumen transaccional con la localización geográfica y las categorías más demandadas.
 
 -- Consulta 2: Clientes sin ventas (LEFT JOIN)
 -- Propósito: detectar clientes dados de alta en el sistema que no registran transacciones para activar acciones de marketing o reactivación.
+-- 1. Insertar clientes que no tienen compras asociadas
+INSERT INTO clientes (id_cliente, nombre, email, fecha_registro)
+VALUES 
+    (10, 'Laura Gómez', 'laura.gomez@example.com', '2023-10-15'),
+    (11, 'Martín Silva', 'martin.silva@example.com', '2023-11-02');
+GO
 SELECT 
     c.id_cliente,
     c.nombre AS nombre_cliente,
-    v.id_venta
+    c.email,
+    c.fecha_registro,
+        v.id_venta
 FROM clientes AS c
 LEFT JOIN ventas AS v 
     ON c.id_cliente = v.id_cliente
 WHERE v.id_venta IS NULL;
--- Hallazgo: La consulta no devuelve un resultado, lo cual evidencia que todos los integrantes de la cartera de clientes registrada cuenta con al menos una transacción en el histórico de ventas. A nivel de negocio, indica una base de usuarios plenamente convertida en el período analizado, sin clientes inactivos.
-
--- Consulta 3: Productos sin ventas (LEFT JOIN)
--- Propósito: identificar artículos del catálogo sin movimiento comercial para optimizar inventario o definir promociones de liquidación.
+-- Hallazgo: La consulta devuelve 2 clientes.
+-- Consulta 3: Productos sin ventas registradas (LEFT JOIN)
+-- Propósito: identificar artículos del catálogo sin movimiento comercial para evaluar rotación de inventario y acciones de marketing.
+-- Insertar un producto de prueba sin compras asociadas
+INSERT INTO productos (id_producto, nombre_producto, id_categoria, precio)
+VALUES (99, 'Teclado Mecánico Inalámbrico', 1, 45000.00);
+GO
 SELECT 
     p.id_producto,
     p.nombre_producto,
@@ -134,8 +138,7 @@ INNER JOIN categorias AS cat
 LEFT JOIN ventas AS v 
     ON p.id_producto = v.id_producto
 WHERE v.id_venta IS NULL;
--- Hallazgo: La consulta no devuelve registros, lo que confirma que el 100% del catálogo activo registra rotación comercial en el período evaluado. No se identifican productos
-
+-- Hallazgo:  Se detectó 1 producto en catálogo sin ventas registradas. Se recomienda al área comercial evaluar si requiere una campaña de descuento o descontinuación para evitar costos de inmovilización de inventario.
 -- Consulta 4: Consolidado por canal (UNION ALL)
 -- Propósito: unificar ventas de diferentes orígenes/canales conservando todas las transacciones para comparar la facturación global de cada canal.
 SELECT 
